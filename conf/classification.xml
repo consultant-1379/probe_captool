@@ -1,0 +1,1498 @@
+<?xml version="1.0"?>
+<!DOCTYPE classification SYSTEM "classification.dtd">
+
+<classification>
+
+    <!-- 
+        Classifiers can provide hints for any application classes, 
+        therefore, they are listed under the "global" element.
+        These hints are identified by the sigId attribute of the classifier
+        which can also be used to refer to hints in rule and precondition elements.
+    -->
+    <global>
+        <!-- 
+            Server port search hints can used standalone to tag aplication classes
+            (it relies solely on finally classified flows), however the final tagging 
+            of a flow based on server-port search should be avoided 
+        -->
+        <classifier name="server-port-search" sigId="1000" standalone="true" />
+        
+        <!-- Individual NBC hints cannot be used standalone to tag application classes -->
+        <!-- <classifier name="NBC" sigId="2000" /> -->
+
+        <!-- Declaration of facets to be used to tag flows (only facets declared here can be used to define tags for blocks) -->
+        <!-- A flow can be set final when it has final tags for all required facets -->
+        <facet name="protocol" required="true" />
+        <facet name="functionality" required="true" />
+        <facet name="encapsulation" />
+        <facet name="encryption" />
+        <facet name="service-provider" />
+        <facet name="client-application" />
+
+    </global>
+
+    <!-- Real Time Messaging Protocol (RTMP) from Adobe System -->
+    <block name="RTMP">
+        <tag name="protocol" value="RTMP" />
+        <tag name="functionality" value="media-playback" />
+        
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="1935" type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <!-- Adobe Flash Media Server? -->
+            <dpi regexp="fmsVer...FMS" type="tcp" />
+        </signature>
+        <signature id="3">
+            <!-- RTMP tunneled in HTTP -->
+            <http-header name="content-type" regexp="^application/x-fcs" />
+        </signature>
+        <signature id="4">
+            <!-- RTMP tunneled in HTTP -->
+            <http-header name="url" regexp="^/(open|send|idle|close)/" />
+        </signature>
+        <rule final="true">
+            <tag name="encapsulation" value="HTTP" />
+            <include sigId="3" />
+            <include sigId="4" />
+        </rule>
+    </block>
+    
+    <block name="RTSP">
+        <tag name="protocol" value="RTSP" />
+        <tag name="functionality" value="media-playback" />
+        
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="554" type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^RTSP/\d\.\d" type="tcp" />
+        </signature>
+        <signature id="3" final="true">
+            <dpi regexp="^DESCRIBE rtsp\://" type="tcp" />
+        </signature>
+    </block>
+    
+    <block name="RTP">
+        <tag name="protocol" value="RTP" />
+        
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="5004" type="udp" />
+        </signature>
+        <signature id="2" standalone="true">
+            <!-- 16 bit RTP sequence number at position 2 -->
+            <sequence-number position="2" size="2" count="8" />
+        </signature>
+        <precondition>
+            <constraint name="rtp-header" />
+        </precondition>
+        <rule>
+            <tag name="functionality" value="media-playback" />
+            <include sigId="2" />
+            <constraint name="unidirectional-flow" />
+        </rule>
+        <rule>
+            <tag name="functionality" value="VoIP" />
+            <include sigId="2" />
+            <constraint name="symmetric-flow" />
+        </rule>
+    </block>
+    
+    <!-- Other misc realtime streaming -->
+    <block name="streaming-realtime-http">
+        <tag name="functionality" value="media-playback" />
+        
+        <!-- Streaming protocol used by SHOUTcast servers (developed by Nullsoft) -->
+        <signature id="1" standalone="true">
+            <dpi regexp="^ICY " type="tcp" />
+        </signature>
+        <signature id="2" standalone="true">
+            <tag name="client-application" value="Winamp" />
+            <http-header name="user-agent" regexp="^WinampMPEG"/>
+        </signature>
+        <signature id="4">
+            <!-- Quative IPTV Service Delivery Platform (QSP) -->
+            <http-header name="user-agent" regexp="^QSP " />
+        </signature>
+        <signature id="5">
+            <!-- Quative IPTV Service Delivery Platform (QSP) -->
+            <http-header name="content-type" regexp="^application/qss" />
+        </signature>
+        <rule final="true">
+            <include sigId="4" />
+            <include sigId="5" />
+        </rule>
+    </block>
+    
+    <block name="online-media">
+        <tag name="functionality" value="media-playback" />
+        
+        <signature id="3">
+            <!-- Microsoft Media Player (Note that it can also act as a simple browser) -->
+            <http-header name="user-agent" regexp="^NSPlayer/" />
+        </signature>
+        <signature id="4" standalone="true">
+            <!-- MP4 container, see http://www.ftyps.com/ (can be both audio and video) -->
+            <!-- Note that theoretically, this container could also be used for image files (but I have never seen such example) -->
+            <http-response-body regexp="^....ftyp" />
+        </signature>
+        
+        <precondition>
+            <!-- Use the more specific audio and video tags instead of the generic media term whenever possible -->
+            <exclude block="online-video" />
+            <exclude block="online-audio" />
+        </precondition>
+    </block>
+    
+    <block name="smartphone-media-player">
+        <signature id="1" standalone="true">
+            <!-- Android Media Player -->
+            <tag name="client-application" value="Android-Media-Player" />
+            <http-header name="user-agent" regexp="^PVCore/" />
+        </signature>
+        <signature id="2" standalone="true">
+            <!-- iPhone Media Player -->
+            <tag name="client-application" value="iPhone-Media-Player" />
+            <http-header name="user-agent" regexp="CoreMedia" />
+        </signature>
+        
+        <!-- Most of these media players can also act as web-browsers -->
+        <rule>
+            <tag name="functionality" value="web-browsing" />
+            <include sigId="1" />
+            <exclude block="online-video" />
+            <exclude block="online-audio" />
+            <exclude block="online-media" />
+        </rule>
+        <rule>
+            <tag name="functionality" value="web-browsing" />
+            <include sigId="2" />
+            <exclude block="online-video" />
+            <exclude block="online-audio" />
+            <exclude block="online-media" />
+        </rule>
+    </block>
+    
+    <block name="online-video">
+        <tag name="functionality" value="video-playback" />
+        
+        <signature id="1" final="true">
+            <http-header name="content-type" regexp="^video/" />
+        </signature>
+        <!-- FLV container -->
+        <signature id="2" final="true">
+            <http-response-body regexp="^FLV" />
+        </signature>
+        <signature id="3" final="true">
+            <!-- Will only match if HTTP traffic does not bypass the DPI module -->
+            <dpi regexp="^FLV" type="tcp" />
+        </signature>
+        <signature id="4">
+            <!-- some qbrick videos -->
+            <http-header name="url" regexp="segment[0-9]+\.ts$" />
+        </signature>
+    </block>
+    
+    <block name="online-audio">
+        <tag name="functionality" value="audio-playback" />
+        
+        <signature id="1">
+            <!-- Can also be very short audio content, e.g. playback of one single word for dictionnary pages or other sound effects on web pages -->
+            <!-- This generic content-type pattern might also include playlists, etc. -->
+            <http-header name="content-type" regexp="^audio/" />
+        </signature>
+        <signature id="2">
+            <!-- can also be file download -->
+            <http-header name="url" regexp="\.mp3$" />
+        </signature>
+        <signature id="3" standalone="true">
+            <!-- Covers several iPhone web-radio apps  -->
+            <http-header name="user-agent" regexp="[Rr]adio" />
+        </signature>
+        <signature id="4" standalone="true">
+            <!-- Icecast streaming audio -->
+            <!-- Many iPhone web-radio apps are powered by this server -->
+            <http-header name="server" regexp="^Icecast" />
+        </signature>
+        <rule>
+            <!-- Audio content type + audio file extension -->
+            <include sigId="1" />
+            <include sigId="2" />
+        </rule>
+        <rule>
+            <tag name="client-application" value="Windows-Media-Player" />
+            <!-- Audio content via Windows Media Player -->
+            <include sigId="1" />
+            <include block="online-media" sigId="3" />
+        </rule>
+        <rule>
+            <!-- Audio content via iPhone Media Player -->
+            <include sigId="1" />
+            <include block="smartphone-media-player" sigId="2" />
+        </rule>
+        <rule>
+            <include sigId="1" />
+            <include block="FlyCast" sigId="1" />
+        </rule>
+    </block>
+
+    <block name="FlyCast">
+        <tag name="service-provider" value="FlyCast" />
+
+        <!-- 
+            FlyCast client also performs browsing and HTTP-based progressive download audio-streaming.
+            This latter is covered by the "online-audio" block.
+        -->
+        <signature id="1" standalone="true">
+            <http-header name="user-agent" regexp="^FlyCast/"/>
+        </signature>
+    </block>
+
+    <block name="megavideo">
+        <tag name="service-provider" value="megavideo" />
+
+        <signature id="1" final="true">
+            <http-header name="host" regexp="\.megavideo\.com$" />
+        </signature>
+    </block>
+    
+    <block name="YouTube">
+        <tag name="service-provider" value="YouTube" />
+
+        <signature id="1" final="true">
+            <http-header name="host" regexp="\.youtube\.com$" />
+        </signature>
+        <signature id="2" final="true">
+            <http-header name="host" regexp="\.googlevideo\.com$" />
+        </signature>
+        <!-- Fetching HTML -->
+        <signature id="3" standalone="true">
+            <http-header name="url" regexp="^/watch\?v=(.{11})" capture="true" pattern-name="video_id" />
+        </signature>
+        <!-- Fetching HTML -->
+        <signature id="4" standalone="true">
+            <http-header name="url" regexp="^/get_video\?.*video_id=(.{11})" capture="true" pattern-name="video_id" />
+        </signature>
+        <!-- Fetching video -->
+        <signature id="5" standalone="true">
+            <http-header name="url" regexp="^/videoplayback\?.*id=" />
+        </signature>
+        <!-- iPhone videos -->
+        <signature id="6" standalone="true">
+            <http-header name="url" regexp="^/videodownload\?.*secureurl=" />
+        </signature>
+        <signature id="7" standalone="true">
+            <tag name="functionality" value="web-browsing" />
+            <tag name="client-application" value="YouTube-player" />
+            <!-- YouTube browsing on iPhone (only browsing, video is fetched by media player) -->
+            <http-header name="user-agent" regexp="YouTube" />
+        </signature>
+    </block>
+    
+    <block name="Google">
+        <tag name="service-provider" value="Google" />
+
+        <signature id="1" standalone="true">
+            <ip-range>
+                <!-- Based on http://fixedorbit.com/cgi-bin/cgirange.exe?ASN=15169 -->
+                <ip address="64.233.160.0" netmask="19" />
+                <ip address="66.102.0.0" netmask="20" />
+                <ip address="66.249.64.0" netmask="19" />
+                <ip address="72.14.192.0" netmask="18" />
+                <ip address="74.125.0.0" netmask="16" />
+                <ip address="194.110.194.0" netmask="24" />
+                <ip address="209.85.128.0" netmask="17" />
+                <ip address="216.239.32.0" netmask="19" />
+            </ip-range>
+        </signature>
+        <precondition>
+            <!-- YouTube is more specific than Google -->
+            <exclude block="YouTube" />
+        </precondition>
+    </block>
+    
+    <block name="Apple">
+        <tag name="service-provider" value="Apple" />
+
+        <signature id="1" standalone="true">
+            <http-header name="host" regexp="apple\.com$" />
+        </signature>
+        <precondition>
+            <!-- iTunes is more specific than Apple -->
+            <exclude block="iTunes" />
+        </precondition>
+    </block>
+    
+    <block name="Qbrick">
+        <tag name="service-provider" value="Qbrick" />
+
+        <signature id="1" standalone="true">
+            <http-header name="host" regexp="qbrick\.com$" />
+        </signature>
+        <signature id="2" standalone="true">
+            <ip-range>
+                <!-- Based on http://fixedorbit.com/cgi-bin/cgirange.exe?ASN=35742 -->
+                <ip address="194.14.241.0" netmask="24" />
+                <ip address="194.14.242.0" netmask="24" />
+                <ip address="194.14.243.0" netmask="24" />
+                <ip address="194.132.48.0" netmask="24" />
+            </ip-range>
+        </signature>
+        <rule>
+            <tag name="protocol" value="RTMP" />
+            <tag name="functionality" value="media-playback" />
+            <!-- Unknown traffic from Qbrick servers at RTMP port is very likely to be RTMP traffic in fact -->
+            <include block="RTMP" sigId="1" />
+            <include sigId="2" />
+            <exclude block="all" />
+            <allow block="RTMP" />
+        </rule>
+        
+    </block>
+    
+    <block name="QQ-HTTP">
+        <tag name="service-provider" value="Tencent-QQ" />
+
+        <signature id="1" final="true">
+            <http-header name="host" regexp="\.qq\.com$" />
+        </signature>
+        <signature id="2" final="true">
+            <tag name="functionality" value="instant-messaging" />
+            <http-header name="server" regexp="(tencent imserver|3g.qq.com)" />
+        </signature>
+        <signature id="3" final="true">
+            <tag name="functionality" value="instant-messaging" />
+            <http-header name="host" regexp="(house[0-9]{0,2}|q[0-9]{0,2}|conf|activeqq)\.3g\.qq\.com$" />
+        </signature>
+    </block>
+
+    <block name="QQ-IM">
+        <tag name="service-provider" value="Tencent-QQ" />
+        <tag name="functionality" value="instant-messaging" />
+
+        <signature id="1">
+            <!-- Only for informational purposes -->
+            <port value="14000" type="tcp" />
+        </signature>
+        <signature id="2" standalone="true">
+            <!-- Experimental signature -->
+            <dpi regexp="\x02\x00[\x0f|\x1f]\x06" type="tcp" />
+        </signature>
+    </block>
+    
+    <block name="social-networking">
+        <tag name="functionality" value="social-networking" />
+
+        <signature id="1" standalone="true">
+            <tag name="service-provider" value="Facebook" />
+            <tag name="client-application" value="Facebook" />
+            <!-- Facebook client on iPhone -->
+            <http-header name="user-agent" regexp="Facebook" />
+        </signature>
+        <signature id="2" standalone="true">
+            <tag name="service-provider" value="Facebook" />
+            <http-header name="host" regexp="(facebook\.com|fbcdn\.net)$" />
+        </signature>
+        <signature id="3" standalone="true">
+            <tag name="service-provider" value="Friendster" />
+            <http-header name="host" regexp="friendster.com$" />
+        </signature>
+        <signature id="4" standalone="true">
+            <tag name="service-provider" value="Twitter" />
+            <http-header name="host" regexp="twitter.com$" />
+        </signature>
+        <signature id="5" final="true">
+            <!-- Twitter clients on iPhones (TwitterFon, Twitterific) -->
+            <tag name="client-application" value="Twitter" />
+            <tag name="service-provider" value="Twitter" />
+            <http-header name="user-agent" regexp="Twitter" />
+        </signature>
+        <signature id="6" final="true">
+            <!-- Twitter clients on iPhones (TweetDeck, Tweetie, SimplyTweet) -->
+            <tag name="client-application" value="Twitter" />
+            <tag name="service-provider" value="Twitter" />
+            <http-header name="user-agent" regexp="Tweet" />
+        </signature>
+        <precondition>
+            <!-- media views at social networking sites account for online-media and not social networking -->
+            <exclude block="online-video" />
+            <exclude block="online-audio" />
+            <exclude block="online-media" />
+        </precondition>
+    </block>
+    
+    <block name="photo-sharing">
+        <tag name="functionality" value="photo-sharing" />
+
+        <signature id="1" standalone="true">
+            <tag name="service-provider" value="Google" />
+            <http-header name="host" regexp="picasaweb\.google\.com$" />
+        </signature>
+        <signature id="2" standalone="true">
+            <tag name="service-provider" value="Flickr" />
+            <http-header name="host" regexp="flickr\.com$" />
+        </signature>
+    </block>
+    
+    <block name="webmail">
+        <tag name="functionality" value="email" />
+
+        <signature id="1" standalone="true">
+            <tag name="service-provider" value="Google" />
+            <http-header name="host" regexp="mail\.google\.com$" />
+        </signature>
+        <signature id="2" standalone="true">
+            <tag name="service-provider" value="Yahoo" />
+            <http-header name="host" regexp="mail\.yahoo\.com$" />
+        </signature>
+    </block>
+
+    <block name="web.browsing">
+        <signature id="1" standalone="true">
+            <http-header name="user-agent" regexp="^Mozilla/\d\.\d" />
+        </signature>
+        <signature id="2" standalone="true">
+            <tag name="client-application" value="Mozilla-Firefox" />
+            <http-header name="user-agent" regexp="Firefox/\d\.\d" />
+        </signature>
+        <signature id="3" standalone="true">
+            <tag name="client-application" value="Internet-Explorer" />
+            <http-header name="user-agent" regexp="MSIE \d\.\d" />
+        </signature>
+        <signature id="4" standalone="true">
+            <tag name="client-application" value="Safari" />
+            <http-header name="user-agent" regexp="^Safari" />
+        </signature>
+        <signature id="5" standalone="true">
+            <tag name="client-application" value="Opera" />
+            <http-header name="user-agent" regexp="^Opera/\d\.\d" />
+        </signature>
+        
+        <!-- Classify as web.browsing only if there are no other hints at all for the functionality tag 
+            This is not nice to write the same rule for each signature, but putting the exclude clause
+            as a precondition would result in not filling in the client-application tag when functionality
+            cannot be classified as web-browsing
+        -->
+        <rule>
+            <tag name="functionality" value="web-browsing" />
+            <!-- Also covers sigId=2 and sigId=3 -->
+            <include sigId="1" />
+            <exclude block="all" facet="functionality" />
+        </rule>
+        <rule>
+            <tag name="functionality" value="web-browsing" />
+            <include sigId="4" />
+            <exclude block="all" facet="functionality" />
+        </rule>
+        <rule>
+            <tag name="functionality" value="web-browsing" />
+            <include sigId="5" />
+            <exclude block="all" facet="functionality" />
+        </rule>
+    </block>
+
+    <block name="web.mobile">
+        <tag name="functionality" value="web-browsing" />
+
+        <signature id="6" standalone="true">
+            <http-header name="user-agent" regexp="(Browser|Obigo|NetFront)/" />
+        </signature>
+        <signature id="7" standalone="true">
+            <http-header name="user-agent" regexp="^(Nokia|NOKIA|SonyEricsson|MAUI.WAP.Browser|Lenovo|LENOVO|SAMSUNG|LG|Amoi|NEC)" />
+        </signature>
+        <precondition>
+            <exclude block="all" facet="functionality" />
+            <allow block="web.browsing" />
+        </precondition>
+    </block>
+
+    <block name="WAP">
+        <tag name="functionality" value="web-browsing" />
+
+        <signature id="1" standalone="true">
+            <!-- WAP over HTTP -->
+            <http-header name="content-type" regexp="^(text|application)/vnd.wap.wml" />
+        </signature>
+        <signature id="2" standalone="true">
+            <!-- WAP (TBD: DPI signatures should be added) -->
+            <tag name="protocol" value="WAP" />
+            <port value="9201" type="udp" />
+        </signature>
+        <precondition>
+            <exclude block="all" facet="functionality" />
+            <allow block="web.browsing" />
+            <allow block="web.mobile" />
+        </precondition>
+    </block>
+
+    <block name="mms">
+        <tag name="functionality" value="MMS" />
+
+        <signature id="1" standalone="true">
+            <http-header name="content-type" regexp="^application/vnd.wap.mms-message" />
+        </signature>
+        <signature id="2" standalone="true">
+            <dpi regexp="application/vnd.wap.mms-message" type="udp" />
+        </signature>
+        <rule>
+            <tag name="protocol" value="WAP" />
+            <include sigId="2" />
+            <include block="WAP" sigId="2" />
+        </rule>
+    </block>
+    
+    <block name="HTTP">
+        <!-- 
+            No need to add this tag to other blocks with HTTP-based traffic, 
+            since this will match for any HTTP traffic.
+            (unless you want to speed up classification by final rules)
+            -->
+        <tag name="protocol" value="HTTP" />
+    
+        <signature id="1" standalone="true">
+            <!-- Meta signature to tag HTTP flows -->
+            <!-- Cannot be final, since other protocols might be encapsulated -->
+            <http />
+        </signature>
+        <precondition>
+            <!-- If an encapsulation protocol is defined, than do not set protocol to HTTP -->
+            <!-- TBD: exclude only HTTP encapsulation -->
+            <exclude block="all" facet="encapsulation" />
+        </precondition>
+    </block>
+
+    <block name="TLS-SSL">
+        <tag name="encryption" value="SSL" />
+        
+        <!-- SSLv3.0 -->
+        <signature id="1" standalone="true">
+            <dpi regexp="^\x16\x03\x00" type="tcp" />
+        </signature>
+        <!-- TLS -->
+        <signature id="2" standalone="true">
+            <dpi regexp="^\x16\x03\x01" type="tcp" />
+        </signature>
+    </block>
+
+    <block name="IPSec">
+        <!-- IPSec encapsulated in UDP for NAT traversal -->
+        <tag name="encryption" value="IPSec-NAT-traversal" />
+        <tag name="encapsulation" value="IPSec-NAT-traversal" />
+        
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="4500" type="udp" />
+        </signature>
+        <signature id="2" standalone="true">
+            <!-- 32 bit ESP sequence number at position 4 -->
+            <sequence-number position="4" size="4" count="8" />
+        </signature>
+        
+        <precondition>
+            <!-- Just to make sure... Other protocols might use sequence numbers at the smae position as well -->
+            <exclude block="all" facet="functionality" />
+            <exclude block="all" facet="protocol" />
+        </precondition>
+    </block>
+
+    <block name="download">
+        <tag name="functionality" value="file-download" />
+
+         <!-- .rar and .iso files are almost exclusively file downloads -->
+        <signature id="3" standalone="true"> 
+            <http-header name="content-type" regexp="^application/x-rar" />
+        </signature>
+        <signature id="4" standalone="true"> 
+            <http-header name="content-type" regexp="^application/rar" />
+        </signature>
+        <signature id="5" standalone="true"> 
+            <http-header name="url" regexp="\.iso$" />
+        </signature>
+        <signature id="6" standalone="true"> 
+            <http-header name="url" regexp="\.rar$" />
+        </signature>
+        <precondition>
+            <!-- web-based file sharing is more specific than file-download -->
+            <exclude block="web.file-sharing" />
+        </precondition>
+    </block>
+    
+    <block name="contenttype">
+        <!-- Auxilary block for content type hints used by other blocks -->
+        <signature id="1"> 
+            <http-header name="content-type" regexp="^application/octet-stream" />
+        </signature>
+        <signature id="2">
+            <http-header name="content-type" regexp="^application/force-download" />
+        </signature>
+    </block>
+    
+    <block name="web.file-sharing">
+        <tag name="functionality" value="file-sharing" />
+        
+        <signature id="1"> 
+            <http-header name="host" regexp="rapidshare.com$" />
+        </signature>
+        <signature id="2"> 
+            <http-header name="host" regexp="megaupload.com$" />
+        </signature>
+        <rule>
+            <tag name="service-provider" value="RapidShare" />
+            <include sigId="1"/>
+            <include block="contenttype" sigId="1"/>
+        </rule>
+        <rule>
+            <tag name="service-provider" value="megaupload" />
+            <include sigId="2"/>
+            <include block="contenttype" sigId="1"/>
+        </rule>
+    </block>
+    
+    <block name="iTunes">
+        <tag name="service-provider" value="iTunes" />
+        <tag name="client-application" value="iTunes" />
+
+        <signature id="1" standalone="true">
+            <http-header name="user-agent" regexp="^iTunes" />
+        </signature>
+        
+        <rule>
+            <tag name="functionality" value="file-download" />
+            <include sigId="1" />
+            <exclude block="online-video" />
+            <exclude block="online-audio" />
+            <exclude block="online-media" />
+        </rule>
+    </block>
+    
+    <block name="BitTorrent">
+        <tag name="functionality" value="file-sharing" />
+        <tag name="protocol" value="BitTorrent" />
+        <tag name="service-provider" value="P2P" />
+
+        <signature id="1" final="true">
+            <dpi regexp="^d1:rd2:id20:" type="udp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^d1:ad2:id20:" type="udp"/>
+        </signature>
+        <signature id="3" final="true">
+            <dpi regexp="^\x13\x42\x69\x74" type="tcp" />
+        </signature>
+        <signature id="4" final="true">
+            <dpi regexp="^\x13BitTorrent"  type="tcp" />
+        </signature>
+        <signature id="5" final="true">
+            <dpi regexp="^\x00\x00\x00\x05\x04\x00\x00" type="tcp" />
+        </signature>
+        <signature id="6" final="true">
+            <dpi regexp="^\x00\x00\x00\x0d\x06\x00\x00" type="tcp" />
+        </signature>
+        <signature id="7" final="true">
+            <dpi regexp="^\x00\x00\x40\x09\x07\x00\x00" type="tcp" />
+        </signature>
+        <signature id="900">
+            <!-- Meta signature for P2P host search -->
+            <p2p-host />
+        </signature>
+        <rule>
+            <!-- Use P2P host search hints only if there are no other hints -->
+            <include sigId="900" />
+            <exclude block="all" />
+        </rule>
+        <!-- TBD: ensure that BitTorrent,1000 + HTTP hint combination matches the BitTorrent.tracker block -->
+    </block>
+    
+    <block name="BitTorrent.tracker">
+        <tag name="functionality" value="file-sharing" />
+        <!-- Protocol is plain HTTP -->
+        <tag name="protocol" value="HTTP" />
+        <tag name="service-provider" value="P2P" />
+
+        <signature id="8" standalone="true">
+            <http-header name="url" regexp="^/announce\?" />
+        </signature>
+        <signature id="9" standalone="true">
+            <http-header name="url" regexp="^/torrents/" />
+        </signature>
+        <signature id="10" standalone="true">
+            <http-header name="url" regexp="^/scrape" />
+        </signature>
+    </block>
+    
+    <block name="Gnutella">
+        <tag name="functionality" value="file-sharing" />
+        <tag name="protocol" value="Gnutella" />
+        <tag name="service-provider" value="P2P" />
+
+        <signature id="1" final="true">
+            <dpi regexp="^GNUTELLA" type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^GND[\x01|\x02|\x03]" type="udp" />
+        </signature>
+        <signature id="3" standalone="true">
+            <!-- SCP@?DNA@ -->
+            <dpi regexp="\x53\x43\x50\x40\x83\x44\x4e\x41\x40" type="udp" />
+        </signature>
+        <signature id="4" standalone="true">
+            <!-- Less frequent -->
+            <dpi regexp="\x00LIME" type="udp" />
+        </signature>
+
+        <signature id="900">
+            <!-- Meta signature for P2P host search -->
+            <p2p-host />
+        </signature>
+        <precondition>
+            <!-- These should match the "Gnutella.HTTP" block -->
+            <exclude block="HTTP" />
+        </precondition>
+        <rule>
+            <!-- Use P2P host search hints only if there are no other hints -->
+            <include sigId="900" />
+            <exclude block="all" />
+        </rule>
+    </block>
+    
+    <block name="Gnutella.HTTP">
+        <tag name="functionality" value="file-sharing" />
+        <!-- Protocol is plain HTTP -->
+        <tag name="protocol" value="HTTP" />
+        <tag name="service-provider" value="P2P" />
+
+        <signature id="8" standalone="true">
+            <http-header name="url" regexp="^/uri-res/N2R\?urn:sha1:" />
+        </signature>
+    </block>
+    
+    <block name="DirectConnect">
+        <tag name="functionality" value="file-sharing" />
+        <tag name="protocol" value="DirectConnect" />
+        <tag name="service-provider" value="P2P" />
+
+        <!-- Default DC hub port -->
+        <!-- Only for information purposes, not used for classification -->
+        <signature id="1">
+            <port value="411" type="tcp" />
+        </signature>
+        <!-- Client-to-client (see http://www.teamfair.info/DC-Protocol.htm) -->
+        <signature id="2" final="true">
+            <dpi regexp="^\$(MyNick|Direction|Send|GetListLen|MaxedOut|Error|Get|FileLength|Canceled) " type="tcp" />
+        </signature>
+        <!-- Client-Server (see http://www.teamfair.info/DC-Protocol.htm) -->
+        <signature id="3" final="true">
+            <dpi regexp="^\$(Hello|GetNickList|MyINFO|GetINFO|ConnectToMe|MultiConnectToMe|RevConnectToMe|To|Quit|OpForceMove|Kick|Search|MultiSearch|SR|Key|Lock|HubName) " type="tcp" />
+        </signature>
+        <!-- Client-to-client UDP (see http://www.teamfair.info/DC-Protocol.htm) -->
+        <signature id="4" final="true">
+            <dpi regexp="^\$(SR|Ping) " type="udp" />
+        </signature>
+        <signature id="900">
+            <!-- Meta signature for P2P host search -->
+            <p2p-host />
+        </signature>
+        <rule>
+            <!-- Use P2P host search hints only if there are no other hints -->
+            <include sigId="900" />
+            <exclude block="all" />
+        </rule>
+    </block>
+    
+    <block name="p2p-software">
+        <tag name="functionality" value="file-sharing" />
+        <!-- Protocol is plain HTTP -->
+        <tag name="protocol" value="HTTP" />
+        <tag name="service-provider" value="P2P" />
+        
+        <!-- Does not make much sense putting client application tags here, since this block only covers tracker communication -->
+        <signature id="1" final="true">
+            <http-header name="user-agent" regexp="^(LimeWire|Shareaza|BearShare)" />
+        </signature>
+        <signature id="2" final="true">
+            <http-header name="server" regexp="^(LimeWire|Shareaza|BearShare)" />
+        </signature>
+    </block>
+
+    <block name="SIP">
+        <tag name="protocol" value="SIP" />
+
+        <signature id="1" final="true">
+            <!-- Requests (not exhaustive, only for the most frequent messages) -->
+            <dpi regexp="^(REGISTER|NOTIFY|INFO|INVITE) sip:" type="any" />
+        </signature>
+        <signature id="2" final="true">
+            <!-- Responses (according to RFC 3261) -->
+            <dpi regexp="^SIP/[0-9]\.[0-9] [1-6][0-9][0-9] " type="any" />
+        </signature>
+    </block>
+
+    <block name="NNTP">
+        <tag name="functionality" value="news" />
+        <tag name="protocol" value="NNTP" />
+
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="119" type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <!-- TBD: more complete signature set based on RFC 3977 -->
+            <dpi regexp="AUTHINFO USER " type="tcp" />
+        </signature>
+    </block>
+
+    <block name="ppstream">
+        <!-- http://www.pps.tv/en/index.html -->
+        <tag name="functionality" value="video-playback" />
+        <tag name="protocol" value="PPStream" />
+        <tag name="service-provider" value="P2P" />
+
+        <signature id="1" final="true">
+            <dpi regexp="pps://" type="udp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="PPStream" type="udp" />
+        </signature>
+        <signature id="3" final="true">
+            <dpi regexp="list_frequentvary_new.xml\.gz" type="udp" />
+        </signature>
+        
+        <signature id="900">
+            <!-- Meta signature for P2P host search -->
+            <p2p-host />
+        </signature>
+        <rule>
+            <!-- Use P2P host search hints only if there are no other hints -->
+            <include sigId="900" />
+            <exclude block="all" />
+        </rule>
+    </block>
+
+    <block name="ppstream.HTTP">
+        <tag name="functionality" value="video-playback" />
+        <tag name="service-provider" value="PPStream" />
+
+        <signature id="1" standalone="true">
+            <http-header name="server" regexp="PPStream" />
+        </signature>
+    </block>
+
+    <block name="spotify">
+        <tag name="functionality" value="audio-playback" />
+        <tag name="protocol" value="Spotify" />
+        <tag name="client-application" value="Spotify" />
+        <tag name="service-provider" value="Spotify" />
+        
+        <signature id="1" standalone="true">
+            <ip-range>
+                <!-- see http://fixedorbit.com/AS/43/AS43650.htm -->
+                <ip address="78.31.8.0" netmask="22" />
+                <ip address="78.31.12.0" netmask="22" />
+            </ip-range>
+        </signature>
+        <precondition>
+            <!-- Just to make sure... Spotify servers also serv HTTP traffic -->
+            <exclude block="all" />
+        </precondition>
+    </block>
+    
+    <block name="spotify-P2P">
+        <tag name="functionality" value="audio-playback" />
+        <tag name="protocol" value="Spotify" />
+        <tag name="client-application" value="Spotify" />
+        <tag name="service-provider" value="P2P" />
+        
+        <signature id="2">
+            <!-- Experimental signature for P2P spotify traffic. Quite short, therefore we force to match the begining of flow -->
+            <dpi regexp="^\x01\x00\x00(\x10|\x11|\x12|\x13|\x14|\x15|\x16|\x17|\x18|\x19|\x1a|\x1b|\x1c|\x1d|\x1e|\x1f)" type="tcp" />
+        </signature>
+        <signature id="900">
+            <!-- Meta signature for P2P host search -->
+            <p2p-host />
+        </signature>
+        <precondition>
+            <!-- Just to make sure... -->
+            <exclude block="all" />
+        </precondition>
+        <rule>
+            <!-- Use P2P host search hints only if there are no other hints -->
+            <include sigId="900" />
+        </rule>
+        <rule final="true">
+            <include sigId="2" />
+            <constraint name="first-ul-packet" />
+        </rule>
+        <rule final="true">
+            <include sigId="2" />
+            <constraint name="first-dl-packet" />
+        </rule>
+    </block>
+    
+    <block name="software-update">
+        <tag name="functionality" value="software-update" />
+        
+        <signature id="1" final="true">
+            <tag name="service-provider" value="Microsoft" />
+            <tag name="client-application" value="Microsoft-Windows" />
+            <http-header name="host" regexp="\.download\.windowsupdate\.com$" />
+        </signature>
+        <signature id="2" final="true">
+            <tag name="service-provider" value="Microsoft" />
+            <tag name="client-application" value="Microsoft-Windows" />
+            <http-header name="user-agent" regexp="^Windows-Update-Agent" />
+        </signature>
+        <signature id="3" final="true">
+            <tag name="service-provider" value="Microsoft" />
+            <tag name="client-application" value="Microsoft-Windows" />
+            <http-header name="user-agent" regexp="^Microsoft BITS/" />
+        </signature>
+        <signature id="4" final="true">
+            <tag name="service-provider" value="Ubuntu" />
+            <tag name="client-application" value="Ubuntu-APT" />
+            <http-header name="user-agent" regexp="^Ubuntu APT-HTTP/" />
+        </signature>
+        <signature id="5" final="true">
+            <tag name="client-application" value="Telesphoreo" />
+            <http-header name="user-agent" regexp="^Telesphoreo APT-HTTP/" />
+        </signature>
+        <signature id="6" final="true">
+            <tag name="service-provider" value="McAfee" />
+            <tag name="client-application" value="NcAfee-antivirus" />
+            <http-header name="user-agent" regexp="^McAfee AutoUpdate" />
+        </signature>
+        <signature id="7" final="true">
+            <tag name="service-provider" value="Symantec" />
+            <tag name="client-application" value="Symantec" />
+            <http-header name="host" regexp="^liveupdate\.symantecliveupdate\.com$" />
+        </signature>
+        <signature id="8" final="true">
+            <http-header name="user-agent" regexp="^(WL|Stub)Installer" />
+        </signature>
+        <signature id="9" final="true">
+            <http-header name="user-agent" regexp="^Software%20Update" />
+        </signature>
+        <signature id="10" final="true">
+            <tag name="service-provider" value="Adobe" />
+            <tag name="client-application" value="Adobe-Update-Manager" />
+            <http-header name="user-agent" regexp="^Adobe Update Manager" />
+        </signature>
+    </block>
+
+    <block name="FTP">
+        <tag name="functionality" value="file-sharing" />
+        <tag name="protocol" value="FTP" />
+    
+        <signature id="1">
+            <!-- Only for information purposes, not used for classification -->
+            <port value="21" type="tcp" />
+        </signature>
+        <!-- 
+            Some of the most used commands to detect control traffic...
+            The list is not exhaustive, many of the commands overlap with email protocol signature
+            These signatures have been omitted (e.g. the "^USER" signature for login also matches POP3 traffic)
+        -->
+        <signature id="2" final="true"> <!-- Final tag required for P2P host search -->
+            <dpi regexp="^(PORT|TYPE) " type="tcp" />
+        </signature>
+        <signature id="900" standalone="true">
+            <!-- 
+                Meta signature for P2P host search. This is not a nice solution,
+                but identifying FTP hosts and servers based on control traffic 
+                and tagging all traffic between these hosts and servers as FTP
+                traffic is pretty reliable and simpler than tracking data connection
+                based on control traffic.
+            -->
+            <p2p-host />
+        </signature>
+        <precondition>
+            <!-- Just to make sure... -->
+            <exclude block="all" />
+        </precondition>
+    </block>
+    
+    <block name="system.DNS">
+        <tag name="functionality" value="system" />
+        <tag name="protocol" value="DNS" />
+
+        <signature id="1" standalone="true">
+            <port value="53" type="any" />
+        </signature>
+        <!-- Use port-based classification only if there are no other hints -->
+        <precondition>
+            <exclude block="all" />
+        </precondition>
+    </block>
+
+    <block name="windows">
+        <!-- Various Windows system protocols: SMB, NetBIOS, etc. -->
+        <tag name="functionality" value="system" />
+        <tag name="protocol" value="Windows" />
+
+        <signature id="1" standalone="true">
+            <port value="137" type="any" />
+        </signature>
+        <signature id="2" standalone="true">
+            <port value="138" type="any" />
+        </signature>
+        <signature id="3" standalone="true">
+            <port value="139" type="any" />
+        </signature>
+        <signature id="4" standalone="true">
+            <port value="445" type="any" />
+        </signature>
+        <signature id="5" final="true">
+            <!-- http://l7-filter.sourceforge.net/layer7-protocols/protocols/smb.pat -->
+            <dpi regexp="\xffSMB[rs%]" type="any" />
+        </signature>
+        <signature id="6" final="true">
+            <dpi regexp="LANMAN[0-9]\.[0-9]" type="tcp" />
+        </signature>
+        <!-- Just to make sure -->
+        <precondition>
+            <exclude block="all" />
+        </precondition>
+    </block>
+
+    <block name="UPnP">
+        <tag name="functionality" value="system" />
+        <tag name="protocol" value="UPnP" />
+
+        <signature id="1">
+            <port value="1900" type="udp" />
+        </signature>
+        <signature id="2">
+            <!-- TBD: revise based on UPnP protocol specification -->
+            <dpi regexp="upnp" type="udp" />
+        </signature>
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="2" />
+        </rule>
+    </block>
+    
+    <block name="maps">
+        <tag name="functionality" value="maps" />
+    
+        <signature id="1" final="true">
+            <http-header name="user-agent" regexp="Maps" />
+        </signature>
+        <signature id="2" final="true">
+            <!-- TBD: is this really a map applications -->
+            <http-header name="user-agent" regexp="Trapster/" />
+        </signature>
+        <signature id="3" final="true">
+            <tag name="service-provider" value="Google" />
+            <tag name="client-application" value="GoogleEarth" />
+            <http-header name="user-agent" regexp="^GoogleEarth" />
+        </signature>
+    </block>
+    
+    <block name="SMTP">
+        <tag name="functionality" value="email" />
+        <tag name="protocol" value="SMTP" />
+    
+        <!-- Incomplete, but should be enough to detect almost all SMTP flows -->
+        <signature id="1" final="true">
+            <dpi regexp="^(EHLO|HELO) " type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^MAIL FROM:" type="tcp" />
+        </signature>
+    </block>
+    
+    <block name="POP3">
+        <tag name="functionality" value="email" />
+        <tag name="protocol" value="POP3" />
+
+        <!-- Status response codes -->
+        <!-- Regexps for request commands not needed, since flows will be tagged anyway by status codes at the beginning of response messages -->
+        <signature id="1" final="true">
+            <dpi regexp="^(\+OK|-ERR) " type="tcp" />
+        </signature>
+        <!-- POP3S port + TLS/SSL is a quite reliable rule for POP3S traffic -->
+        <signature id="2">
+            <port value="995" type="tcp" />
+        </signature>
+        <rule>
+            <include sigId="2" />
+            <include block="TLS-SSL" sigId="1" />
+        </rule>
+        <rule>
+            <include sigId="2" />
+            <include block="TLS-SSL" sigId="2" />
+        </rule>
+    </block>
+    
+    <block name="IMAP">
+        <tag name="functionality" value="email" />
+        <tag name="protocol" value="IMAP" />
+
+        <!--
+            Based on ABNF description of response syntax in RFC 3501 
+            Note that requests are not considered, since flows will be anyway matched via responses.
+            Additionally, "continue-req" is also ignored as it is very rare to have it at the begining of a flow
+        -->
+
+        <!-- resp-cond-state -->
+        <signature id="1" final="true">
+            <dpi regexp="^\* (OK|NO|BAD) " type="tcp" />
+        </signature>
+        <!-- resp-cond-bye -->
+        <signature id="2" final="true">
+            <dpi regexp="^\* BYE " type="tcp" />
+        </signature>
+        <!--  mailbox-data -->
+        <signature id="3" final="true">
+            <dpi regexp="^\* (FLAGS|LIST|LSUB|SEARCH|STATUS) " type="tcp" />
+        </signature>
+        <!-- mailbox-data -->
+        <signature id="4" final="true">
+            <dpi regexp="^\* [0-9]+ (EXISTS|RECENT)" type="tcp" />
+        </signature>
+        <!-- message-data -->
+        <signature id="5" final="true">
+            <dpi regexp="^\* [0-9]+ (EXPUNGE|FETCH)" type="tcp" />
+        </signature>
+        <!-- capability-data -->
+        <signature id="6" final="true">
+            <dpi regexp="^\* CAPABILITY" type="tcp" />
+        </signature>
+        <!-- response-tagged -->
+        <signature id="7" final="true">
+            <dpi regexp="^1[0-9]* (OK|NO|BAD) " type="tcp" />
+        </signature>
+        <!-- IMAPS port + TLS/SSL is a quite reliable rule for IMAPS traffic -->
+        <signature id="8">
+            <port value="993" type="tcp" />
+        </signature>
+        <rule>
+            <include sigId="8" />
+            <include block="TLS-SSL" sigId="1" />
+        </rule>
+        <rule>
+            <include sigId="8" />
+            <include block="TLS-SSL" sigId="2" />
+        </rule>
+    </block>
+    
+    <block name="chat.AOL">
+        <tag name="functionality" value="instant-messaging" />
+        <tag name="service-provider" value="AOL" />
+
+        <signature id="1" final="true">
+            <http-header name="url" regexp="aimsid=[0-9]{3}\.[0-9]{10}\.[0-9]{10}\:" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="AOL Instant Messenger, version [0-9]\.[0-9]\." type="tcp" />
+        </signature>
+        <signature id="3">
+            <!-- Experimental signature; only used together with well known port number -->
+            <dpi regexp="^\x2a(\x01|\x02)....\x00.\x00" type="tcp" />
+        </signature>
+        <signature id="4">
+            <port value="5190" type="tcp" />
+        </signature>
+        <rule>
+            <include sigId="3" />
+            <include sigId="4" />
+        </rule>
+    </block>
+    
+    <block name="chat.MSN">
+        <tag name="functionality" value="instant-messaging" />
+        <tag name="service-provider" value="MSN" />
+    
+        <signature id="1">
+            <port value="1863" type="tcp" />
+        </signature>
+        <signature id="2">
+            <dpi regexp="^(ADG|ADL|BLP|BPR|CHG|CHL|CVR|FLN|FQY|GCF|ILN|NLN|NOT|OUT|PRP|QNG|QRY|RMG|RML|RNG|UBM|UBX|USR|VER|XFR) " type="tcp" />
+        </signature>
+        <signature id="3">
+            <dpi regexp="^(ANS|BYE|CAL|IRO|JOI|USR) " type="tcp" />
+        </signature>
+        <signature id="4">
+            <dpi regexp="^MSG " type="tcp" />
+        </signature>
+        <signature id="5">
+            <dpi regexp="^PNG " type="tcp" />
+        </signature>
+        <!-- Neither port-based nor the DPI based signatures are not strong enough alone but are pretty reliable when combined -->
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="2" />
+        </rule>
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="3" />
+        </rule>
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="4" />
+        </rule>
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="5" />
+        </rule>
+    </block>
+    
+    <block name="chat.Yahoo">
+        <tag name="functionality" value="instant-messaging" />
+        <tag name="service-provider" value="Yahoo" />
+    
+        <!-- See http://www.venkydude.com/articles/yahoo.htm -->
+        <signature id="1" final="true">
+            <dpi regexp="^YMSG" type="tcp" />
+        </signature>
+    </block>
+
+    <!-- Extensible Messaging and Presence Protocol -->
+    <!-- See RFC 3920 -->
+    <block name="XMPP">
+        <tag name="functionality" value="instant-messaging" />
+        <tag name="protocol" value="XMPP" />
+        
+        <signature id="1" final="true">
+            <!-- Start of stanza -->
+            <!-- Note that reserved XML characters need to be escaped by &lt; and &gt; in the regexp -->
+            <dpi regexp="^&lt;(message|presence|iq) " type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <!-- Start of stream -->
+            <dpi regexp="^&lt;\?xml version='1\.0' encoding='UTF-8'\?&gt;&lt;stream:stream " type="tcp" />
+        </signature>
+        <signature id="3" final="true">
+            <!-- End of stream -->
+            <dpi regexp="^&lt;/stream:stream&gt;" type="tcp" />
+        </signature>
+        <precondition>
+            <!-- Such XML patterns could occur also in HTTP traffic... -->
+            <exclude block="HTTP" />
+        </precondition>
+    </block>
+
+    <block name="Fring">
+        <tag name="functionality" value="instant-messaging" />
+        <tag name="client-application" value="Fring" />
+        
+        <signature id="1" standalone="true">
+            <http-header name="user-agent" regexp="^Fring" />
+        </signature>
+        <signature id="2">
+            <ip-range>
+                <!-- Only experimental -->
+                <ip address="89.186.92.96" netmask="27" />
+            </ip-range>
+        </signature>
+        <signature id="3">
+            <sequence-number position="4" size="2" count="8" host-byte-order="true" />
+        </signature>
+        <rule>
+            <tag name="functionality" value="VoIP" />
+            <include sigId="2" />
+            <include sigId="3" />
+        </rule>
+    </block>
+
+    <!-- 
+        Can be used to detect Skype penetration. Skpye clients check for updates (upon every startup?).
+        However, not suitable to detect Skype traffic.
+    -->
+    <block name="Skype-update">
+        <tag name="functionality" value="software-update" />
+        <tag name="client-application" value="Skype" />
+        
+        <signature id="1" standalone="true">
+            <http-header name="user-agent" regexp="^Skype" />
+        </signature>
+    </block>
+    
+    <block name="presence">
+        <signature id="1" final="true">
+            <http-header name="user-agent" regexp="^Android-Imps" />
+        </signature>
+        <signature id="2" standalone="true">
+            <http-header name="host" regexp="^wirelessvillage\." />
+        </signature>
+    </block>
+    
+    <block name="SSH">
+        <tag name="functionality" value="remote-access" />
+        <tag name="protocol" value="SSH" />
+    
+        <!-- Only for information purposes, not used for classification -->
+        <signature id="1">
+            <port value="22" type="tcp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^SSH" type="tcp" />
+        </signature>
+    </block>
+
+    <block name="socks">
+        <!-- SOCKS proxy port also used by Opera-mini proxies -->
+        <signature id="1">
+            <port value="1080" type="tcp" />
+        </signature>
+    </block>
+
+    <block name="opera-mini">
+        <tag name="functionality" value="web-browsing" />
+        <tag name="protocol" value="Opera-Mini-sockets" />
+        <tag name="client-application" value="Opera-Mini" />
+    
+        <!--- Frequent pattern (60-70% of flows) in uplink. But there are quite a lot false positives... TBD: find better signatures -->
+        <signature id="1">
+            <dpi regexp="^\x01\x01\x01" type="tcp" />
+        </signature>
+        <!-- If there are no other hints, and both port and uplink -->
+        <rule>
+            <include block="socks" sigId="1" />
+            <include sigId="1" />
+            <exclude block="all" />
+        </rule>
+    </block>
+
+    <block name="blackberry">
+        <!-- 
+             It seems that the blackberry UDP protocol an encapsulation and proxy service
+             which can be used by many different application 
+             e.g. email, web-browsing, application download, etc.
+             Actually, blackberry devices do not seem to have any other way to communicate but only
+             via blackberry proxies using this encapsulation protocol
+        -->
+        <tag name="encapsulation" value="blackberry" />
+        
+        <!-- Only experimental signatures, but they work fine for two completely different networks -->
+        <signature id="1" standalone="true">
+            <dpi regexp="^\x10\x08\x2f\xff\xff" type="udp" />
+        </signature>
+        <signature id="2" standalone="true">
+            <dpi regexp="^\x10\x10\x2f\xff\xff" type="udp" />
+        </signature>
+        <precondition>
+            <exclude block="all" />
+        </precondition>
+    </block>
+    
+    <block name="WoW">
+        <tag name="functionality" value="gaming" />
+        <tag name="protocol" value="WoW" />
+        <tag name="client-application" value="WoW" />
+    
+        <signature id="1">
+            <port value="3724" type="tcp" />
+        </signature>
+        <!-- 
+            See:  
+            http://l7-filter.sourceforge.net/layer7-protocols/protocols/worldofwarcraft.pat
+            http://opendpi.googlecode.com/files/OpenDPI_1.0.tar.gz#OpenDPI/lib/protocols/world_of_warcraft.c
+        -->
+        <signature id="2" final="true">
+            <dpi regexp="^.{4,5}WoW" type="tcp" />
+        </signature>
+        <signature id="4" final="true">
+            <dpi regexp="^\x00\x06\xec\x01" type="tcp" />
+        </signature>
+        <precondition>
+            <exclude block="all" />
+        </precondition>
+    </block>
+
+    <block name="xbox">
+        <tag name="functionality" value="gaming" />
+        <tag name="protocol" value="xbox" />
+        <tag name="client-application" value="xbox" />
+    
+        <signature id="1">
+            <port value="3074" type="udp" />
+        </signature>
+        <!-- 
+            See:  
+            http://l7-filter.sourceforge.net/layer7-protocols/protocols/xboxlive.pat
+            http://opendpi.googlecode.com/files/OpenDPI_1.0.tar.gz#OpenDPI/lib/protocols/xbox.c
+        -->
+        <signature id="2">
+            <dpi regexp="^\x00\x00\x00\x00.\x58.\x00\x00\x00" type="udp" />
+        </signature>
+        <rule final="true">
+            <include sigId="1" />
+            <include sigId="2" />
+        </rule>
+    </block>
+
+    <block name="FPS">
+        <tag name="functionality" value="gaming" />
+    
+        <!-- 
+            See:  
+            http://l7-filter.sourceforge.net/layer7-protocols/protocols/quake-halflife.pat
+            http://opendpi.googlecode.com/files/OpenDPI_1.0.tar.gz#OpenDPI/lib/protocols/quake.c
+        -->
+        <signature id="1" final="true">
+            <dpi regexp="^\xff{4}get(servers|info)" type="udp" />
+        </signature>
+        <signature id="2" final="true">
+            <dpi regexp="^\xff{4}(getchallange|connect)" type="udp" />
+        </signature>
+        <signature id="3" final="true">
+            <dpi regexp="^\xff{4}status" type="udp" />
+        </signature>
+        <signature id="4" final="true">
+            <tag name="client-application" value="Counter-Strike" />
+            <dpi regexp="^\xff{4}m.*Counter-Strike" type="udp" />
+        </signature>
+        <signature id="5" final="true">
+            <!-- 3D engine behind many FPS games (Quake, Counter-Strike, Half-Life, etc.) -->
+            <tag name="protocol" value="Source-engine" />
+            <dpi regexp="^\xff{4}TSource Engine" type="udp" />
+        </signature>
+    </block>
+
+    <block name="ESP">
+        <tag name="encryption" value="ESP" />
+        <tag name="encapsulation" value="ESP" />
+        
+        <signature id="1" final="true">
+            <ip-protocol value="50" />
+        </signature>
+    </block>
+
+    <block name="GRE">
+        <tag name="encapsulation" value="GRE" />
+        
+        <signature id="1" final="true">
+            <ip-protocol value="47" />
+        </signature>
+    </block>
+    
+    <block name="IPv6">
+        <tag name="encapsulation" value="IPv6_in_IPv4" />
+        
+        <signature id="1" final="true">
+            <ip-protocol value="41" />
+        </signature>
+    </block>
+
+    <block name="ICMP">
+        <tag name="functionality" value="system" />
+        <tag name="protocol" value="ICMP" />
+        
+        <signature id="1" final="true">
+            <ip-protocol value="1" />
+        </signature>
+    </block>
+
+    <block name="IGMP">
+        <tag name="functionality" value="system" />
+        <tag name="protocol" value="IGMP" />
+        
+        <signature id="1" final="true">
+            <ip-protocol value="2" />
+        </signature>
+    </block>
+
+</classification>

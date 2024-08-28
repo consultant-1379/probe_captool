@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- TBD: could we use entities and entity references (or IDs and IDREFs) to ensure most of the additional constraints described in the comments below? -->
+
+<!ELEMENT classification (global,block+)>
+
+<!ELEMENT global (classifier*,facet+)>
+
+<!ELEMENT classifier EMPTY>
+
+<!ATTLIST classifier name ID #REQUIRED>
+<!-- Should be unique among all classifiers and should not conflict with any sigId within block elements neither -->
+<!ATTLIST classifier sigId CDATA #REQUIRED>
+<!ATTLIST classifier standalone (true|false) "false">
+<!ATTLIST classifier final (true|false) "false">
+
+<!ELEMENT facet EMPTY>
+<!ATTLIST facet name ID #REQUIRED>
+<!ATTLIST facet required (true|false) "false">
+
+<!ELEMENT block (tag*,signature+,precondition?,rule*)>
+<!ATTLIST block name ID #REQUIRED>
+
+<!ELEMENT tag EMPTY>
+<!-- Has to be a valid facet name declared within the global element -->
+<!ATTLIST tag name CDATA #REQUIRED>
+<!ATTLIST tag value CDATA #REQUIRED>
+
+<!-- Note that tags should only be assigned to standalone signatures -->
+<!ELEMENT signature (tag*,(port|ip-range|dpi|sequence-number|p2p-host|http|http-header|http-request-body|http-response-body|ip-protocol))>
+<!-- Signature IDs have to be unique within one block -->
+<!ATTLIST signature id CDATA #REQUIRED>
+<!ATTLIST signature standalone (true|false) "false">
+<!-- final="true" implies standalone="true" -->
+<!ATTLIST signature final (true|false) "false">
+
+<!ELEMENT precondition (exclude*,allow*,constraint*)>
+
+<!ELEMENT rule (tag*,include+,exclude*,allow*,constraint*)>
+<!ATTLIST rule final (true|false) "false">
+
+<!ELEMENT include EMPTY>
+<!-- Has to be a valid sigId within the enclosing block or within the block referenced by the block attribute -->
+<!ATTLIST include sigId CDATA #REQUIRED>
+<!-- If present, then has to be a valid block name within the document -->
+<!ATTLIST include block CDATA #IMPLIED>
+
+<!ELEMENT exclude EMPTY>
+<!-- Has to be a valid block name within the document or "all" -->
+<!ATTLIST exclude block CDATA #REQUIRED>
+<!-- If present, then has to be a valid facet name declared within the global element -->
+<!ATTLIST exclude facet CDATA #IMPLIED>
+
+<!ELEMENT allow EMPTY>
+<!-- Has to be a valid block name within the document or "all" -->
+<!ATTLIST allow block CDATA #REQUIRED>
+
+<!ELEMENT constraint EMPTY>
+<!-- Has to be a valid constraint name defined in ClassificationConstraints.h -->
+<!ATTLIST constraint name CDATA #REQUIRED>
+
+<!ELEMENT port EMPTY>
+<!ATTLIST port value CDATA #REQUIRED>
+<!ATTLIST port type (tcp|udp|any) "any">
+
+<!ELEMENT ip-range (ip+)>
+<!ELEMENT ip EMPTY>
+<!ATTLIST ip address CDATA #REQUIRED>
+<!ATTLIST ip netmask CDATA #IMPLIED>
+
+<!ELEMENT dpi EMPTY>
+<!ATTLIST dpi regexp CDATA #REQUIRED>
+<!ATTLIST dpi type (tcp|udp|any) "any">
+
+<!ELEMENT http EMPTY>
+
+<!ELEMENT sequence-number EMPTY>
+<!ATTLIST sequence-number position CDATA #REQUIRED>
+<!ATTLIST sequence-number size (2|4) #REQUIRED> <!-- Currently, 2 and 4 byte long sequence numbers are supported -->
+<!ATTLIST sequence-number count CDATA #REQUIRED>
+<!ATTLIST sequence-number host-byte-order (true|false) "false"> <!-- Network byte order is assumed by default -->
+
+<!ELEMENT p2p-host EMPTY>
+
+<!ELEMENT http-header EMPTY>
+<!ATTLIST http-header name CDATA #REQUIRED>
+<!ATTLIST http-header regexp CDATA #REQUIRED>
+<!ATTLIST http-header capture (true|false) "false">
+<!-- If the capture attribute is set to true, than pattern-name should also be defined -->
+<!ATTLIST http-header pattern-name CDATA #IMPLIED>
+
+<!ELEMENT http-request-body EMPTY>
+<!ATTLIST http-request-body regexp CDATA #REQUIRED>
+
+<!ELEMENT http-response-body EMPTY>
+<!ATTLIST http-response-body regexp CDATA #REQUIRED>
+
+<!ELEMENT ip-protocol EMPTY>
+<!ATTLIST ip-protocol value CDATA #REQUIRED> <!-- Should be between 0-255 and should be unique (cannot use ID to ensure this latter by DTD since a DTD ID must start with an alphabetic character) -->

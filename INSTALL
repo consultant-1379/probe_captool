@@ -1,0 +1,56 @@
+System requirements
+-------------------
+
+To build Captool you need the following software installed on your system
+(corresponding Debian package names used by Captool authors are given in 
+parentheses):
+
+- C++ compiler (g++ >= 4.3 for <unordered_map> or Boost equivalent)
+- Boost C++ Libraries, with development headers (libboost-dev, 
+  libboost-system-dev)
+- libconfig C/C++ Configuration File Library, C++ version with headers
+  (libconfig++-dev;  on Ubuntu libconfig-dev too)
+- libxml++2.6-dev
+- pkg-config
+- libpcre3-dev
+- libpcap-dev
+
+Minimum package versions are not given because the lack of extensive test
+on our part---please feel free to try the current stable versions in your
+distribution.
+
+
+Installing from source
+----------------------
+
+If the above system requirements are satisfied, you can try the following to
+build Captool::
+
+  svn co https://teamforge.lmera.ericsson.se/svn/repos/captool/trunk/captool
+  cd captool
+  ./configure
+  make
+  make install
+
+Optional switches to ``./configure`` above::
+
+  --prefix=PFX             installation directory prefix (default: same directory
+                           where `configure' is run)
+  --enable-debug           compile with debug symbols (default: disabled)
+  --enable-profile         compile a profiling `captool' binary (default: disabled)
+  --enable-static          compile a statically linked binary (default: disabled)
+  --enable-profile[=perftools]
+                          Build profiling binary (standard or
+                          `google-perftools') [default no; implies
+                          --enable-static']
+  --with-boost-asio[=special-lib]
+                          use the ASIO library from boost - it is possible to
+                          specify a certain library for the linker e.g.
+                          --with-boost-asio=boost_system-mt
+
+Note for Ubuntu build you **have** to specify
+``--with-boost-asio=boost_system-mt``.
+
+Profiling build optionally supports Google Performance Tools
+(libgoogle-perftools-dev), by adding the ``--enable-profile=perftools``
+switch.

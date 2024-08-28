@@ -1,0 +1,15 @@
+{
+  dlopen_leak
+  Memcheck:Leak
+  ...
+  fun:dlopen@@GLIBC_2.1
+  fun:_ZN7captool13ModuleLibraryC1ESs
+  ...
+}
+{
+  sync_stdio
+  Memcheck:Leak
+  ...
+  fun:_ZNSt8ios_base15sync_with_stdioEb
+  fun:main
+}

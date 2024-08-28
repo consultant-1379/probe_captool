@@ -1,0 +1,30 @@
+/**
+ * @mainpage
+ * 
+ * @section sec_intro Introduction
+ *
+ * CapTool is a traffic profiling tool, focusing on online classification of
+ * user data according to port-based nad deep packet inspection (%DPI) rules.
+ *
+ * Captool has a modular design that allows easy reconfiguration for
+ * different interfaces and protocol stacks.  Modules are able to handle
+ * specific protocol headers, utilize filtering and generate output files of
+ * any form.  Each input packet goes through a path of modules, where each
+ * module is allowed to decide which should be the next module in the path of
+ * the packet.
+ * 
+ * @image html modular_design.png "Modular design of Captool"
+ *
+ * A module can also decide to drop the current packet once it has been fully
+ * processed.  The current version of Captool runs single-threaded which means
+ * that an input packet is allowed to follow the path of modules and the next
+ * packet is only captured when the packet is dropped by any of the modules.
+ * Each module has a unique name that allows each module to communicate with
+ * any other module regardless of their position in the processing path.
+ * Modules can be freely implemented for Captool using the specified API.
+ * 
+ * The Captool framework, each module and the connection between modules can
+ * be configured using a text-based configuration file.  This allows the
+ * complete reconfiguration of the analyzer tool without the need for
+ * recompilation. 
+*/

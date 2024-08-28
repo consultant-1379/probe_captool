@@ -1,0 +1,13 @@
+Regenerating Autoconf scripts
+-----------------------------
+
+The `configure' script and various *.in files it uses are kept up to date in
+the repository for checkout-and-build users' benefit.  If you touch any of
+`configure.ac', `Makefile.am' or somesuch you need to ensure that configure
+and friends are regenerated::
+
+  ./autogen.sh
+
+For this to work you will need the standard set of Autohell stuff and
+`ax_prog_doxygen.m4' (in Debian package autoconf-archive >= 20090426-1)
+for `doxygen' rules to be included.
